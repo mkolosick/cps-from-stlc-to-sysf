@@ -72,3 +72,17 @@ with st_t_value : trm -> Prop :=
         st_t_term (open_te_var (t_open_ee_var m x) X)) ->
       st_t_value (t_trm_abs t m).
 
+Scheme st_s_term_mut := Induction for st_s_term Sort Prop
+with st_s_value_mut := Induction for st_s_value Sort Prop
+with st_t_term_mut := Induction for st_t_term Sort Prop
+with st_t_value_mut := Induction for st_t_value Sort Prop.
+
+Hint Constructors st_s_term st_s_value st_t_term st_t_value.
+
+Inductive st_term : trm -> Prop :=
+  | st_source_term : forall e, st_s_term e -> st_term e
+  | st_target_term : forall e, st_t_term e -> st_term e
+
+with st_value : trm -> Prop :=
+  | st_source_value : forall v, st_s_value v -> st_value v
+  | st_target_value : forall v, st_t_value v -> st_value v.
