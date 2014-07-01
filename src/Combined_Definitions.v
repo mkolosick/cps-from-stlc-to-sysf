@@ -7,20 +7,11 @@ Require Import Core_Definitions LibWfenv Source_Definitions Target_Definitions.
 
 (* ********************************************************************** *)
 
-(* Combined Language Types *)
+Inductive st_type : typ -> Prop :=
+  | st_s_type : forall s, s_type s -> st_type s
+  | st_t_type : forall t, t_type t -> st_type t.
 
-(* Inductive st_type : typ -> Prop :=
-  | st_type_s_bool : st_type s_typ_bool
-  | st_type_s_arrow : forall s1 s2,
-      s_type s1 -> s_type s2 -> st_type (s_typ_arrow s1 s2)
-  | st_type_t_var : forall x, st_type (t_typ_fvar x)
-  | st_type_t_bool : st_type t_typ_bool
-  | st_type_t_pair : forall t1 t2, 
-      t_type t1 -> t_type t2 -> st_type (t_typ_pair t1 t2)
-  | st_type_t_arrow : forall L t1 t2,
-      (forall X, X \notin L -> t_type (open_tt_var t1 X)) ->
-      (forall X, X \notin L -> t_type (open_tt_var t2 X)) ->
-      st_type (t_typ_arrow t1 t2). *)
+Hint Constructors st_type.
 
 Inductive st_s_term : trm -> Prop :=
   | st_s_term_value : forall v, st_s_value v -> st_s_term v
