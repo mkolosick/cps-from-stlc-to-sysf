@@ -3,7 +3,7 @@
 * Matthew Kolosick                                                        *
 ***************************************************************************)
 
-Require Import Core_Definitions LibWfenv Source_Definitions Target_Definitions.
+Require Import Core_Definitions LibWfenv Source_Definitions Target_Definitions Core_Infrastructure.
 
 (* ********************************************************************** *)
 
@@ -91,4 +91,14 @@ Inductive st_wft : env_type -> typ -> Prop :=
       (forall X, X \notin L -> st_wft (D & X ~ star) (open_tt_var t2 X)) ->
       st_wft D (t_typ_arrow t1 t2).
 
-      
+Hint Constructors st_wft.
+
+
+(* TESTING *)
+
+Lemma st_wft_implies_ok : forall D t, st_wft D t -> ok D.
+Proof.
+  induction 1; auto.
+  pick_fresh X. assert (ok (D & X ~ star)); auto.
+Qed.
+
