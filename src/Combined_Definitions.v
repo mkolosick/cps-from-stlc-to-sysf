@@ -77,3 +77,18 @@ Inductive st_term : trm -> Prop :=
 with st_value : trm -> Prop :=
   | st_source_value : forall v, st_s_value v -> st_value v
   | st_target_value : forall v, st_t_value v -> st_value v.
+
+Inductive st_wft : env_type -> typ -> Prop :=
+  | st_s_wft_bool : forall D, ok D -> st_wft D s_typ_bool
+  | st_s_wft_arrow : forall D t1 t2,
+      st_wft D t1 -> st_wft D t2 -> st_wft D (s_typ_arrow t1 t2)
+  | st_t_wft_var : forall D X, ok D -> binds X star D -> st_wft D (t_typ_fvar X)
+  | st_t_wft_bool : forall D, ok D -> st_wft D t_typ_bool
+  | st_t_wft_pair : forall D t1 t2,
+      st_wft D t1 -> st_wft D t2 -> st_wft D (t_typ_pair t1 t2)
+  | st_t_wft_arrow : forall L D t1 t2,
+      (forall X, X \notin L -> st_wft (D & X ~ star) (open_tt_var t1 X)) ->
+      (forall X, X \notin L -> st_wft (D & X ~ star) (open_tt_var t2 X)) ->
+      st_wft D (t_typ_arrow t1 t2).
+
+      
