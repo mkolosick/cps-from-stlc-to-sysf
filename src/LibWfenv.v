@@ -205,6 +205,18 @@ Qed.
  *        ok_remove, ok_map, ok_concat_map, ok_singles *)
 
 (* additional lemmas specific to wfenv *)
+
+Lemma wfenv_exchange : forall {A : Type} (P : A -> Prop) (E : env A) (F : env A)
+  (x : var) (y : var) (a : A) (b : A),
+  wfenv P (E & x ~ a & y ~ b & F) -> wfenv P (E & y ~ b & x ~ a & F).
+Proof.
+  induction F using env_ind; intros. try rewrite concat_empty_r in *.
+  apply wfenv_push_inv in H. apply wfenv_push; intuition;
+  apply wfenv_push_inv in H0; try apply wfenv_push; intuition.
+  try rewrite concat_assoc in *. apply wfenv_push_inv in H. apply wfenv_push. intuition.
+  intuition. intuition.
+Qed.
+
 (* TODO: what else is useful here? *)
 
 Lemma wfenv_implies : forall {A : Type} (P Q : A -> Prop) (E : env A),
@@ -228,3 +240,127 @@ Proof.
 Qed.
 
 (* TODO: lemmas about relenv *)
+
+Lemma relenv_empty : forall {A B : Type} (P : A -> Prop) (Q : B -> Prop) (R : A -> B -> Prop),
+  relenv P empty Q empty R .
+Proof.
+  unfold relenv. intuition; auto using wfenv_empty.
+  repeat rewrite dom_empty. reflexivity.
+  apply binds_empty_inv in H. contradiction.
+Qed.
+
+Lemma relenv_push : forall {A B : Type}
+  (P : A -> Prop) (E : env A) (Q : B -> Prop) (F : env B) (R : A -> B -> Prop)
+  (x : var) (a : A) (b : B),
+  relenv P E Q F R -> x # E -> P a -> Q b -> R a b ->
+  relenv P (E & x ~ a) Q (F & x ~ b) R.
+Proof.
+  unfold relenv. intuition.
+  repeat rewrite dom_concat. repeat rewrite dom_single. rewrite H4. reflexivity.
+  apply wfenv_push; auto.
+  apply wfenv_push; auto. rewrite <- H4. auto.
+  apply binds_push_inv in H6. apply binds_push_inv in H8. intuition.
+    subst. auto. apply (H7 x0); auto.
+Qed.
+
+Lemma relenv_concat_inv : forall {A B : Type}
+  (P : A -> Prop) (E E' : env A) (Q : B -> Prop) (F F' : env B) (R : A -> B -> Prop),
+  relenv P (E & E') Q (F & F') R -> dom E = dom F -> dom E' = dom F' ->
+  relenv P E Q F R /\ relenv P E' Q F' R.
+Proof.
+  unfold relenv. intros. intuition;
+  try solve [apply wfenv_concat_inv in H; apply wfenv_concat_inv in H3; intuition].
+  apply (H5 x); apply binds_concat_left_ok; eauto using wfenv_ok.
+  apply (H5 x); apply binds_concat_right; auto.
+Qed.
+
+Lemma dom_empty_empty : forall {A : Type} (E : env A),
+  dom E = \{} -> E = empty.
+Proof.
+  induction E using env_ind. auto.
+  intros.
+  assert (x \in \{}). rewrite <- H.
+  rewrite dom_push. rewrite in_union. left. rewrite in_singleton. auto.
+  apply in_empty_elim in H0. contradiction.
+Qed.
+
+Lemma relenv_empty_empty_1 : forall {A B : Type}
+  (P : A -> Prop) (E : env A) (Q : B -> Prop) (R : A -> B -> Prop),
+  relenv P E Q empty R -> E = empty.
+Proof.
+  unfold relenv. intuition. apply dom_empty_empty. rewrite dom_empty in H0. exact H0.
+Qed.
+
+Lemma relenv_empty_empty_2 : forall {A B : Type}
+  (P : A -> Prop) (Q : B -> Prop) (F : env B) (R : A -> B -> Prop),
+  relenv P empty Q F R -> F = empty.
+Proof. 
+  unfold relenv. intuition. apply dom_empty_empty. rewrite dom_empty in H0. symmetry. exact H0.
+Qed. 
+
+Lemma relenv_exchange_1 : forall {A B : Type}
+  (P : A -> Prop) (E : env A) (E' : env A) (Q : B -> Prop) (F : env B) (R : A -> B -> Prop)
+  (x y : var) (a a' : A),
+  relenv P (E & x ~ a & y ~ a' & E') Q F R -> relenv P (E & y ~ a' & x ~ a & E') Q F R.
+Proof.
+  unfold relenv. intuition. repeat rewrite dom_concat in *.
+  rewrite <- union_assoc with (E := dom E) in *.
+  rewrite union_comm with (E := dom (y ~ a')). exact H0.
+  apply wfenv_exchange. auto.
+  apply (H3 x0). apply binds_concat_inv in H2. intuition. apply binds_concat_left; auto.
+  apply binds_push_inv in H6. intuition. subst. apply binds_middle_eq.
+    apply wfenv_ok in H. apply ok_concat_inv in H; destruct H. apply ok_push_inv in H. intuition.
+  apply binds_push_inv in H7. intuition. subst. apply binds_push_eq. exact H4.
+Qed.
+
+(* Lemma relenv_find : forall {A B : Type}
+  (P : A -> Prop) (Q : B -> Prop) (R : A -> B -> Prop) (E : env A) (F : env B),
+  (forall (x : var) (b : B),
+    relenv P E Q (F & x ~ b) R -> exists E', exists a,
+      binds x a E /\ P a /\ relenv P E' Q F R /\ R a b) /\
+  (forall (x : var) (a : A),
+    relenv P (E & x ~ a) Q F R -> exists F', exists b,
+      binds x b F /\ Q b /\ relenv P E Q F' R /\ R a b).
+Proof.
+  intros. induction E using env_ind; induction F using env_ind; split; intros.
+  unfold relenv in H. destruct H.
+  assert (x \in \{}). rewrite dom_empty in H. rewrite H.
+  apply get_some_inv with (v := b). apply binds_push_eq.
+  apply in_empty_elim in H1. contradiction.
+
+  unfold relenv in H. destruct H.
+  assert (x \in \{}). rewrite dom_empty in H. rewrite <- H.
+  apply get_some_inv with (v := a). apply binds_push_eq.
+  apply in_empty_elim in H1. contradiction.
+
+  unfold relenv in H. destruct H.
+  assert (x \in \{}). rewrite dom_empty in H. rewrite H.
+  rewrite dom_concat. rewrite in_union. left.
+  apply get_some_inv with (v := v). apply binds_push_eq.
+  apply in_empty_elim in H1. contradiction.
+
+  rewrite concat_empty_l in H.
+  unfold relenv in H. destruct H.
+  assert (F = empty). rewrite dom_push in H. rewrite dom_single in H.
+  assert (x0 = x). apply 
+
+  destruct (IHE Q F R x0 b).
+Qed. *)
+
+(* 
+Lemma relenv_ind : forall {A B : Type} (P : A -> Prop) (Q : B -> Prop) (R : A -> B -> Prop)
+  (goal : env A -> env B -> Prop),
+  goal empty empty ->
+  (forall (E : env A) (F : env B) (x : var) (a : A) (b : B),
+    relenv P E Q F R -> goal E F -> x # E -> P a -> Q b -> R a b ->
+    goal (E & x ~ a) (F & x ~ b)) ->
+  forall (E : env A) (F : env B), relenv P E Q F R -> goal E F.
+Proof.
+  intros.
+  generalize dependent E.
+  induction F using env_ind; intros. apply relenv_empty_empty_1 in H1. rewrite H1. auto.
+  generalize dependent F.
+  induction E using env_ind; intros. apply relenv_empty_empty_2 in H1. rewrite H1. auto.
+
+  (* problem: how to get the same x on both sides!?
+     might not be doable with this induction strategy *) *)

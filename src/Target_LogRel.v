@@ -60,10 +60,8 @@ Program Fixpoint interpV (t : typ) (rho : relat_env) (a : atom)
           AtomVal (subst1_tt rho t) (subst2_tt rho t) a /\
           forall t1 t2 R u1 u2,
             Rel t1 t2 R ->
-            exists L,
-            (forall X, X \notin L -> 
-              interpV (open_tt_var t' X) (rho & X ~ (t1, t2, R)) (u1, u2)) ->
-            forall X, X \notin L ->
+            exists L, forall X, X \notin L ->
+              interpV (open_tt_var t' X) (rho & X ~ (t1, t2, R)) (u1, u2) ->
               termrel (subst1_tt (rho & X ~ (t1, t2, R)) (open_tt_var t'' X))
                       (subst2_tt (rho & X ~ (t1, t2, R)) (open_tt_var t'' X))
                       (fun a =>
@@ -110,71 +108,20 @@ Proof.
   rewrite* WfExtensionality.fix_sub_eq_ext.
 Qed.
 
-Lemma interpV_arrow1 : forall t t' rho a,
-  AtomVal (subst1_tt rho (t_typ_arrow t t')) (subst2_tt rho (t_typ_arrow t t')) a ->
-  (forall t1 t2 R u1 u2,
-    Rel t1 t2 R ->
-    exists L,
-      (forall X, X \notin L ->
-        interpV (open_tt_var t X) (rho & X ~ (t1, t2, R)) (u1, u2)) ->
-      forall X, X \notin L ->
-        interpE (open_tt_var t' X) (rho & X ~ (t1, t2, R))
-                (t_trm_app (fst a) t1 u1, t_trm_app (snd a) t2 u2)) ->
-  interpV (t_typ_arrow t t') rho a.
-Proof.
-  intros. unfold interpV. unfold interpV_func. rewrite* WfExtensionality.fix_sub_eq_ext.
-  unfold interpE in H0. split. apply H.
-  intros. destruct (H0 t1 t2 R u1 u2 H1) as [L]. exists L. apply H2.
-Qed.
-
-Lemma interpV_arrow2 : forall t t' rho a,
-  interpV (t_typ_arrow t t') rho a ->
-  AtomVal (subst1_tt rho (t_typ_arrow t t')) (subst2_tt rho (t_typ_arrow t t')) a /\
-  forall t1 t2 R u1 u2,
-    Rel t1 t2 R ->
-    exists L,
-    (forall X, X \notin L ->
-      interpV (open_tt_var t X) (rho & X ~ (t1, t2, R)) (u1, u2)) ->
-    forall X, X \notin L ->
-      interpE (open_tt_var t' X) (rho & X ~ (t1, t2, R))
-              (t_trm_app (fst a) t1 u1, t_trm_app (snd a) t2 u2).
-Proof.
-  intros. unfold interpV in H. unfold interpV_func in H.
-  rewrite* WfExtensionality.fix_sub_eq_ext in H.
-Qed.
-
 Lemma interpV_arrow : forall t t' rho a,
   interpV (t_typ_arrow t t') rho a <->
   AtomVal (subst1_tt rho (t_typ_arrow t t')) (subst2_tt rho (t_typ_arrow t t')) a /\
-  forall t1 t2 R u1 u2,
-    Rel t1 t2 R ->
-    exists L,
-    (forall X, X \notin L ->
-      interpV (open_tt_var t X) (rho & X ~ (t1, t2, R)) (u1, u2)) ->
-    forall X, X \notin L ->
-      interpE (open_tt_var t' X) (rho & X ~ (t1, t2, R))
-              (t_trm_app (fst a) t1 u1, t_trm_app (snd a) t2 u2).
-Proof.
-  split. apply interpV_arrow2. intuition. apply* interpV_arrow1.
-Qed.
-(*  intros. unfold interpV in H. unfold interpV_func in H.
-  rewrite* WfExtensionality.fix_sub_eq_ext in H.
-  intros. unfold interpV. unfold interpV_func.
-  rewrite* WfExtensionality.fix_sub_eq_ext.
-Qed.*)
-
-Lemma interpV_arrow1' : forall L t t' rho a,
-  AtomVal (subst1_tt rho (t_typ_arrow t t')) (subst2_tt rho (t_typ_arrow t t')) a ->
   (forall t1 t2 R u1 u2,
     Rel t1 t2 R ->
-      (forall X, X \notin L ->
-        interpV (open_tt_var t X) (rho & X ~ (t1, t2, R)) (u1, u2)) ->
-      forall X, X \notin L ->
-        interpE (open_tt_var t' X) (rho & X ~ (t1, t2, R))
-                (t_trm_app (fst a) t1 u1, t_trm_app (snd a) t2 u2)) ->
-  interpV (t_typ_arrow t t') rho a.
+    exists L, forall X, X \notin L ->
+      interpV (open_tt_var t X) (rho & X ~ (t1, t2, R)) (u1, u2) ->
+      interpE (open_tt_var t' X) (rho & X ~ (t1, t2, R))
+              (t_trm_app (fst a) t1 u1, t_trm_app (snd a) t2 u2)).
 Proof.
-  intros. apply* interpV_arrow1.
+  split; intros.
+  unfold interpV in H. unfold interpV_func in H.
+  rewrite* WfExtensionality.fix_sub_eq_ext in H.
+  unfold interpV. unfold interpV_func. rewrite* WfExtensionality.fix_sub_eq_ext.
 Qed.
 
 (* G relation and logical equivalence *)
@@ -207,6 +154,34 @@ Notation "a \in E[[ t ]] rho" := (interpE t rho a) (at level 0).
 
 (* basic properties *)
 
+Lemma interpV_AtomVal : forall D t rho a,
+  t_wft D t -> rho \in D[[ D ]] -> a \in V[[ t ]]rho ->
+  AtomVal (subst1_tt rho t) (subst2_tt rho t) a.
+Proof.
+  intros. gen rho a.
+  induction H; intros; unfold subst1_tt; unfold subst2_tt; simpl.
+
+  rewrite interpV_var in H2. destruct H2 as [RR]. destruct H2.
+  destruct RR as [[t1 t2] R].
+  assert (Rel t1 t2 R).
+    apply relenv_wfenv_2 in H1.
+    apply wfenv_binds with (x := X) (v := (t1, t2, R)) in H1; auto.
+  repeat rewrite get_map with (v := (t1, t2)). simpl in *. apply* H4.
+  rewrite get_map with (v := (t1, t2, R)); auto.
+  rewrite get_map with (v := (t1, t2, R)); auto.
+
+  rewrite interpV_bool in H1. destruct H1; subst; split; simpl;
+    try apply* t_value_typing_true; try apply* t_value_typing_false; apply wfenv_empty.
+
+  rewrite interpV_pair in H2.
+  destruct H2 as [v1]. destruct H2 as [v1']. destruct H2 as [v2]. destruct H2 as [v2'].
+  intuition. subst.
+  destruct (IHt_wft1 rho H1 (v1, v2) H2). destruct (IHt_wft2 rho H1 (v1', v2') H5).
+  split; simpl; apply* t_value_typing_pair.
+
+  rewrite interpV_arrow in H4. destruct* H4.
+Qed.
+
 Lemma interpE_weaken_generalized : forall D D' t rho rho' X RR,
   t_wft (D & D') t -> rho \in D[[ D ]] -> rho' \in D[[ D' ]] ->
   X \notin dom (D & D') ->
@@ -217,19 +192,45 @@ Proof.
   repeat rewrite map_concat. repeat rewrite map_single. repeat rewrite subst_tt_weaken;
   try (intro; apply (t_wft_fv_tt t (D & D')) in H4; auto).
   unfold termrel. split; split; intuition;
-  destruct (H6 v1 H4) as [v2]; exists v2; intuition; apply* H3.
+  destruct (H6 v1 H4) as [v2]; exists v2; intuition. rewrite* <- H3. rewrite* H3.
 Qed.
 
 Lemma interpV_weaken_generalized : forall D D' t rho rho' X t1 t2 R a,
-  t_wft (D & D') t -> rho \in D[[ D ]] -> rho' \in D[[ D' ]] ->
-  Rel t1 t2 R -> ok (rho & X ~ (t1, t2, R) & rho') ->
+  t_wft (D & D') t -> (rho & rho') \in D[[ D & D' ]] -> dom rho = dom D -> dom rho' = dom D' ->
+  Rel t1 t2 R -> X # D -> X # D' ->
   (a \in V[[ t ]](rho & rho') <-> a \in V[[ t ]](rho & X ~ (t1, t2, R) & rho')).
 Proof.
   intros. remember (D & D') as D0. gen D D' rho rho' X t1 t2 R a.
   induction H; split; intros; subst.
   (* var *)
-  rewrite interpV_var. rewrite interpV_var in H5. destruct H5 as [RR]. exists RR. intuition.
+  rewrite interpV_var. rewrite interpV_var in H7. destruct H7 as [RR]. exists RR. intuition.
     apply* binds_weaken.
+      gen D'. induction rho' using env_ind; intros.
+        rewrite dom_empty in H3. symmetry in H3. apply dom_empty_empty in H3. subst.
+        repeat rewrite concat_empty_r in *. apply interpD_ok in H2. intuition.
+        apply ok_push; auto. assert (X0 \notin (dom rho)); auto. rewrite* H1.
+      rewrite concat_assoc. apply ok_push.
+      (* want to apply IHrho' here but stuck *) skip.
+      repeat rewrite dom_concat. repeat rewrite notin_union.
+      rewrite concat_assoc in H2. apply interpD_ok in H2. intuition.
+      apply ok_push_inv in H11. intuition. rewrite dom_single. rewrite notin_singleton.
+      (* need to break down D' here too *) skip.
+      apply ok_push_inv in H11. intuition.
+
+(*      induction D' using env_ind; intros.
+      rewrite dom_empty in H3. apply dom_empty_empty in H3. subst.
+        repeat rewrite concat_empty_r in *. apply ok_push.
+        apply interpD_ok in H2. intuition. assert (X0 \notin (dom rho)); auto. rewrite* H1.
+      gen D'. induction rho' using env_ind; intros.
+      try rewrite concat_empty_r in *. apply ok_push. apply interpD_ok in H2. intuition.
+        assert (X0 \notin (dom rho)); auto. rewrite* H1.
+        rewrite concat_empty_r in H2. apply interpD
+        apply relenv_wfenv_2 in H2. apply wfenv_ok in H2. auto.
+        assert (X0 \notin (dom rho)). rewrite* H1. exact H10.
+      rewrite concat_assoc. apply ok_push.
+
+          
+        apply IHrho' with (D' := D' & x ~ star). *)
       
   rewrite interpV_var. rewrite interpV_var in H5. destruct H5 as [RR]. exists RR. intuition.
     apply binds_middle_inv in H6. intuition.
@@ -246,11 +247,11 @@ Proof.
   rewrite interpV_pair. rewrite interpV_pair in H5.
     destruct H5 as [v1]. destruct H5 as [v1']. destruct H5 as [v2]. destruct H5 as [v2'].
     exists v1 v1' v2 v2'. intuition.
-    apply* (IHt_wft1 D0 D'). apply* (IHt_wft2 D0 D').
+    rewrite* <- (IHt_wft1 D0 D'). rewrite* <- (IHt_wft2 D0 D').
   rewrite interpV_pair. rewrite interpV_pair in H5.
     destruct H5 as [v1]. destruct H5 as [v1']. destruct H5 as [v2]. destruct H5 as [v2'].
     exists v1 v1' v2 v2'. intuition.
-    apply* (IHt_wft1 D0 D'). apply* (IHt_wft2 D0 D').
+    rewrite* (IHt_wft1 D0 D'). rewrite* (IHt_wft2 D0 D').
 
   (* arrow *)
   rewrite interpV_arrow. split. skip.
@@ -264,23 +265,21 @@ Proof.
   rewrite <- concat_assoc.
   rewrite <- (interpE_weaken_generalized D0 (D' & X0 ~ star)).
   (* the interesting premise *)
-  rewrite concat_assoc. apply* H10. (* !!! what's up with X1??? *)
-  intros. rewrite <- concat_assoc. rewrite H0 with (D := D0) (D'0 := D' & X1 ~ star).
-    rewrite concat_assoc. apply H11. skip. (* !!! stuck *)
+  rewrite concat_assoc. apply* H10.
+  rewrite <- concat_assoc.
+  rewrite H0 with (D := D0) (D'0 := D' & X0 ~ star); auto using concat_assoc.
+  rewrite concat_assoc. apply H12.
     (* "easy" premises of IH for t1 *)
-    skip. (* !!! stuck *)
-    rewrite* concat_assoc.
+    apply relenv_push; auto. skip. (* TODO fix freshness premise *)
     auto.
-    skip. (* TODO add relenv_push to libwfenv *)
-    auto.
-    rewrite concat_assoc. apply* ok_push. skip. (* !!! stuck *)
+    rewrite concat_assoc. apply* ok_push.
   (* the "easy" premises of interpE_weaken_generalized / IH for t2*)
   rewrite concat_assoc. apply* H1.
   auto.
-  skip. (* TODO add relenv_push to libwfenv *)
+  apply relenv_push; auto. skip. (* TODO fix freshness premise *)
   skip. (* TODO make freshness premises of interpE_weaken less annoying*)
   apply H2 with (D := D0) (D'0 := D' & X0 ~ star); auto. rewrite* concat_assoc.
-  skip. (* TODO add relenv_push to libwfenv *)
+  apply relenv_push; auto. skip. (* TODO fix freshness premise *)
   rewrite concat_assoc. apply* ok_push.
 
 
