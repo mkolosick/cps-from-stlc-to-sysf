@@ -3,7 +3,7 @@
 * Matthew Kolosick                                                        *
 ***************************************************************************)
 
-Require Import Core_Definitions LibWfenv Source_Definitions Target_Definitions Core_Infrastructure.
+Require Import Core_Definitions LibWfenv Source_Definitions Target_Definitions Cps_Trans.
 
 (* ********************************************************************** *)
 
@@ -49,7 +49,7 @@ with st_t_term : trm -> Prop :=
   | st_t_term_app : forall u1 t u2,
       st_t_value u1 -> t_type t -> st_t_value u2 -> st_t_term (t_trm_app u1 t u2)
   | st_t_term_ts : forall e s m,
-      st_s_term e -> s_type s -> st_t_term m -> st_t_term (t_trm_ts e s m) 
+      st_s_term e -> s_type s -> st_t_term m -> st_t_term (t_trm_ts e s m)
 
 with st_t_value : trm -> Prop :=
   | st_t_value_var : forall x, st_t_value (t_trm_fvar x)
@@ -104,6 +104,13 @@ Inductive st_typing : env_type -> env_term -> trm -> typ -> Prop :=
       st_s_typing D G u t -> st_typing D G u t
   | st_typing_t : forall D G u t,
       st_t_typing D G u t -> st_typing D G u t
+  | st_typing_st : forall D G e s,
+      st_t_typing D G e (cps_type_trans s) ->
+      st_typing D G (s_trm_st e s) s
+  | st_typing_ts : forall L D G e1 e2 s t,
+      st_s_typing D G e1 s ->
+      (forall x, x \notin L -> st_t_typing D (G & x ~ (cps_type_trans s)) (t_open_ee_var e2 x) t) ->
+      st_typing D G (t_trm_ts e1 s e2) t
 
 with st_s_typing : env_type -> env_term -> trm -> typ -> Prop :=
   | st_s_typing_var : forall D G x t,
@@ -115,7 +122,7 @@ with st_s_typing : env_type -> env_term -> trm -> typ -> Prop :=
       ok D -> wfenv (st_wft D) G -> st_s_typing D G s_trm_false s_typ_bool
   | st_s_typing_abs : forall L D G e s1 s2,
       wfenv (st_wft D) G ->
-      (forall x, x \notin L -> st_typing (G & x ~ s1) (s_open_ee_var e x) s2) ->
+      (forall x, x \notin L -> st_typing D (G & x ~ s1) (s_open_ee_var e x) s2) ->
       (st_type s1) ->
       st_s_typing D G (s_trm_abs s1 e) (s_typ_arrow s1 s2)
   | st_s_typing_if : forall D G e1 e2 e3 s,
@@ -123,7 +130,7 @@ with st_s_typing : env_type -> env_term -> trm -> typ -> Prop :=
       st_s_typing D G (s_trm_if e1 e2 e3) s
   | st_s_typing_app : forall D G e1 e2 s1 s2,
       st_s_typing D G e1 (s_typ_arrow s1 s2) -> st_s_typing D G e2 s1 ->
-      st_s_typing D G (s_trm_app e1 e2) s2.
+      st_s_typing D G (s_trm_app e1 e2) s2
 
 with st_t_typing : env_type -> env_term -> trm -> typ -> Prop :=
   | st_t_typing_value : forall D G u t,
@@ -142,7 +149,7 @@ with st_t_typing : env_type -> env_term -> trm -> typ -> Prop :=
       st_t_value_typing D G u1 (t_typ_arrow t1 t2) ->
       st_wft D t ->
       st_t_value_typing D G u2 (open_tt t1 t) ->
-      st_t_typing D G (t_trm_app u1 t u2) (open_tt t2 t).
+      st_t_typing D G (t_trm_app u1 t u2) (open_tt t2 t)
 
 with st_t_value_typing : env_type -> env_term -> trm -> typ -> Prop :=
   | st_t_value_typing_var : forall D G x t,
@@ -163,13 +170,3 @@ with st_t_value_typing : env_type -> env_term -> trm -> typ -> Prop :=
                     (open_te_var (t_open_ee_var m x) X)
                     (open_tt_var t2 X)) ->
       st_t_value_typing D G (t_trm_abs t1 m) (t_typ_arrow t1 t2).
-
-
-(* TESTING *)
-
-Lemma st_wft_implies_ok : forall D t, st_wft D t -> ok D.
-Proof.
-  induction 1; auto.
-  pick_fresh X. assert (ok (D & X ~ star)); auto.
-Qed.
-
